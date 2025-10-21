@@ -31,7 +31,7 @@ classDiagram
 
     %% LogEntry
     class LogEntry {
-        +Command interface{}
+        +Command any
         +Term int
         +Index int
     }
@@ -58,7 +58,7 @@ classDiagram
 
     %% ClientEnd - RPC endpoint
     class ClientEnd {
-        -endname interface{}
+        -endname any
         -ch chan reqMsg
         +Call(svcMeth string, args, reply) bool
     }
@@ -72,10 +72,10 @@ classDiagram
         -maxraftstate int
         -persister *Persister
         -app StateMachine
-        -pending map~int~chan interface{}
+        -pending map~int~chan any
         -lastApplied map~int64~int64
         +MakeRSM(servers, me, persister, maxraftstate, app) *RSM
-        +Submit(op) interface{}
+        +Submit(op) any
         +Raft() Raft
         +Kill()
         -applier()
@@ -220,10 +220,10 @@ classDiagram
         -mu sync.Mutex
         -reliable bool
         -longDelays bool
-        -ends map~interface{}~*ClientEnd
-        -enabled map~interface{}~bool
-        -servers map~interface{}~*Server
-        -connections map~interface{}~interface{}
+        -ends map~any~*ClientEnd
+        -enabled map~any~bool
+        -servers map~any~*Server
+        -connections map~any~any
         +MakeNetwork() *Network
         +AddServer(servername, rs) *ClientEnd
         +DeleteServer(servername)

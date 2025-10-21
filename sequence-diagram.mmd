@@ -77,7 +77,7 @@ sequenceDiagram
         S2-->>S1: Success, ahora soy Follower
 
         Note over C: Cliente reintenta con nuevo líder
-        C-->>-C: Timeout en S2
+        Note over C: Timeout en S2
         C->>+S1: Get("key")
         S1->>SM: Lee valor de state machine
         SM-->>S1: "value"

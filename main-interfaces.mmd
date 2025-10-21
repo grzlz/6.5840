@@ -2,7 +2,7 @@ classDiagram
     %% Interfaz principal de Raft
     class Raft {
         <<interface>>
-        +Start(command interface{}) (int, int, bool)
+        +Start(command any) (int, int, bool)
         +GetState() (int, bool)
         +Snapshot(index int, snapshot []byte)
         +PersistBytes() int
@@ -14,7 +14,7 @@ classDiagram
     %% ApplyMsg - Mensajes del log a la aplicación
     class ApplyMsg {
         +CommandValid bool
-        +Command interface{}
+        +Command any
         +CommandIndex int
         +SnapshotValid bool
         +Snapshot []byte
@@ -26,7 +26,7 @@ classDiagram
 
     %% Interfaz RSM (Replicated State Machine)
     class RSM {
-        +Submit(op interface{}) interface{}
+        +Submit(op any) any
         +Raft() raftapi.Raft
         +Snapshot(maxraftstate int)
         +Kill()
