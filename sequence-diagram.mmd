@@ -1,0 +1,116 @@
+sequenceDiagram
+    participant C as Cliente KV
+    participant S1 as Servidor 1<br/>(Follower)
+    participant S2 as Servidor 2<br/>(Leader)
+    participant S3 as Servidor 3<br/>(Follower)
+    participant LOG as Log Replicado
+    participant SM as State Machine
+
+    Note over S1,S3: Estado Inicial: S2 es el líder actual
+
+    %% Operación normal: Cliente envía Put
+    rect rgb(230, 240, 255)
+        Note over C,SM: Operación Normal: Put("key", "value")
+        C->>+S1: Put("key", "value")
+        S1-->>C: No soy líder, intenta S2
+        C->>+S2: Put("key", "value")
+        Note over S2: S2 es líder, asigna<br/>índice al comando
+    end
+
+    %% Fase de Replicación de Log
+    rect rgb(255, 240, 230)
+        Note over S2,S3: Fase 1: Replicación de Log (AppendEntries RPC)
+        S2->>LOG: Añade entrada: Put("key","value") @ índice 5
+        par Replicación Paralela
+            S2->>+S1: AppendEntries(term=2, prevLog=4, entries=[5])
+            S2->>+S3: AppendEntries(term=2, prevLog=4, entries=[5])
+        end
+
+        S1->>LOG: Añade entrada @ índice 5
+        S1-->>-S2: Success (matchIndex=5)
+
+        S3->>LOG: Añade entrada @ índice 5
+        S3-->>-S2: Success (matchIndex=5)
+
+        Note over S2: Mayoría alcanzada (2/3)<br/>Marca entrada como committed
+    end
+
+    %% Fase de Aplicación al State Machine
+    rect rgb(240, 255, 240)
+        Note over S2,SM: Fase 2: Aplicación al State Machine
+        S2->>+SM: ApplyMsg(index=5, cmd=Put("key","value"))
+        SM->>SM: Ejecuta: map["key"] = "value"
+        SM-->>-S2: Aplicado exitosamente
+        S2-->>-C: OK
+
+        Note over S1,S3: En siguiente heartbeat, followers aplican también
+        par Aplicación en Followers
+            S2->>S1: AppendEntries(commitIndex=5)
+            S1->>SM: ApplyMsg(index=5)
+            S2->>S3: AppendEntries(commitIndex=5)
+            S3->>SM: ApplyMsg(index=5)
+        end
+    end
+
+    %% Simulación de Fallo de Red
+    rect rgb(255, 230, 230)
+        Note over S2,S3: Escenario de Fallo: Partición de Red
+        C->>+S2: Get("key")
+        Note over S2: Timeout: S2 está<br/>particionado de la red
+
+        Note over S1,S3: S1 y S3 no reciben heartbeats
+        Note over S1: Election timeout!<br/>Incrementa term a 3
+        S1->>+S3: RequestVote(term=3, candidateId=1)
+        S3-->>-S1: VoteGranted=true
+        Note over S1: Mayoría alcanzada (2/3)<br/>S1 se convierte en líder
+    end
+
+    %% Nueva elección completada
+    rect rgb(245, 230, 255)
+        Note over S1,S3: Nuevo Líder: S1 (term=3)
+        S1->>S3: AppendEntries(term=3, heartbeat)
+        S3-->>S1: Success
+
+        Note over S2: S2 recibe heartbeat con term=3
+        S1->>S2: AppendEntries(term=3)
+        Note over S2: term=3 > term=2<br/>Revierte a Follower
+        S2-->>S1: Success, ahora soy Follower
+
+        Note over C: Cliente reintenta con nuevo líder
+        C-->>-C: Timeout en S2
+        C->>+S1: Get("key")
+        S1->>SM: Lee valor de state machine
+        SM-->>S1: "value"
+        S1-->>-C: "value"
+    end
+
+    %% Snapshot para compactación
+    rect rgb(255, 255, 230)
+        Note over S2,LOG: Escenario Adicional: Snapshot (Lab 3D)
+        Note over S2: Log crece demasiado<br/>Trigger snapshot @ índice 100
+        S2->>SM: Snapshot()
+        SM-->>S2: Serialized state bytes
+        S2->>LOG: Truncate log hasta índice 100<br/>Guarda snapshot
+        Note over S2: Reduce uso de memoria<br/>Acelera recuperación
+    end
+
+    %% Recuperación desde crash
+    rect rgb(255, 240, 255)
+        Note over S3: Escenario: S3 Crash y Recuperación
+        Note over S3: CRASH!
+        Note over S3: ...reinicio...
+        S3->>LOG: readPersist() - restaura state
+        alt Tiene snapshot reciente
+            S3->>SM: Restore(snapshot bytes)
+            Note over S3: Recupera desde snapshot<br/>+ log entries posteriores
+        else Sin snapshot
+            S3->>SM: Replay todo el log
+            Note over S3: Reconstruye state desde<br/>todos los log entries
+        end
+
+        Note over S3: Recuperación completa
+        S3->>S1: AppendEntries RPC
+        S1-->>S3: Success, estás al día
+    end
+
+    Note over C,SM: Sistema totalmente recuperado y operacional

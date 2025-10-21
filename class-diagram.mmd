@@ -1,0 +1,274 @@
+classDiagram
+    %% Raft Implementation
+    class Raft {
+        -mu sync.Mutex
+        -peers []*ClientEnd
+        -persister *Persister
+        -me int
+        -dead int32
+        -currentTerm int
+        -votedFor int
+        -log []LogEntry
+        -commitIndex int
+        -lastApplied int
+        -nextIndex []int
+        -matchIndex []int
+        -state ServerState
+        -applyCh chan ApplyMsg
+        +Make(peers, me, persister, applyCh) *Raft
+        +Start(command) (int, int, bool)
+        +GetState() (int, bool)
+        +Snapshot(index, snapshot)
+        +Kill()
+        -ticker()
+        -sendRequestVote(server, args, reply) bool
+        -sendAppendEntries(server, args, reply) bool
+        -RequestVote(args, reply)
+        -AppendEntries(args, reply)
+        -persist()
+        -readPersist(data)
+    }
+
+    %% LogEntry
+    class LogEntry {
+        +Command interface{}
+        +Term int
+        +Index int
+    }
+
+    %% ServerState enum
+    class ServerState {
+        <<enumeration>>
+        FOLLOWER
+        CANDIDATE
+        LEADER
+    }
+
+    %% Persister - Simulated persistent storage
+    class Persister {
+        -mu sync.Mutex
+        -raftstate []byte
+        -snapshot []byte
+        +Save(raftstate, snapshot)
+        +ReadRaftState() []byte
+        +ReadSnapshot() []byte
+        +RaftStateSize() int
+        +SnapshotSize() int
+    }
+
+    %% ClientEnd - RPC endpoint
+    class ClientEnd {
+        -endname interface{}
+        -ch chan reqMsg
+        +Call(svcMeth string, args, reply) bool
+    }
+
+    %% RSM (Replicated State Machine)
+    class RSM {
+        -mu sync.Mutex
+        -me int
+        -rf Raft
+        -applyCh chan ApplyMsg
+        -maxraftstate int
+        -persister *Persister
+        -app StateMachine
+        -pending map~int~chan interface{}
+        -lastApplied map~int64~int64
+        +MakeRSM(servers, me, persister, maxraftstate, app) *RSM
+        +Submit(op) interface{}
+        +Raft() Raft
+        +Kill()
+        -applier()
+        -checkSnapshot()
+        -isDuplicate(clientId, seqNum) bool
+    }
+
+    %% KVServer
+    class KVServer {
+        -me int
+        -dead int32
+        -rsm *RSM
+        -db map~string~string
+        -mu sync.Mutex
+        +Get(args, reply)
+        +Put(args, reply)
+        +DoOp(req) any
+        +Snapshot() []byte
+        +Restore(data)
+        +Kill()
+        +killed() bool
+    }
+
+    %% Clerk
+    class Clerk {
+        -servers []*ClientEnd
+        -clientId int64
+        -seqNum int64
+        -leaderId int
+        +Get(key) string
+        +Put(key, value)
+        +Append(key, arg)
+        -PutAppend(key, value, op) string
+    }
+
+    %% Coordinator (MapReduce)
+    class Coordinator {
+        -mu sync.Mutex
+        -mapTasks []Task
+        -reduceTasks []Task
+        -nReduce int
+        -files []string
+        -phase Phase
+        +MakeCoordinator(files, nReduce) *Coordinator
+        +Example(args, reply) error
+        +Done() bool
+        -server()
+        -assignTask() *Task
+        -checkTimeouts()
+    }
+
+    %% Worker (MapReduce)
+    class Worker {
+        -mapf func(string, string) []KeyValue
+        -reducef func(string, []string) string
+        -id int
+        +Worker(mapf, reducef)
+        -requestTask() *Task
+        -doMapTask(task)
+        -doReduceTask(task)
+        -callExample()
+    }
+
+    %% Task (MapReduce)
+    class Task {
+        +TaskType TaskType
+        +TaskId int
+        +FileName string
+        +NReduce int
+        +NMap int
+        +Status TaskStatus
+        +StartTime time.Time
+    }
+
+    %% TaskStatus enum
+    class TaskStatus {
+        <<enumeration>>
+        IDLE
+        IN_PROGRESS
+        COMPLETED
+    }
+
+    %% ShardKVServer
+    class ShardKVServer {
+        -me int
+        -gid Tgid
+        -rsm *RSM
+        -sm *shardctrler.Clerk
+        -config Config
+        -shards map~int~Shard
+        -mu sync.Mutex
+        +Get(args, reply)
+        +Put(args, reply)
+        +Migrate(args, reply)
+        +InstallShard(args, reply)
+        +DoOp(req) any
+        -pollConfig()
+        -migrateShards()
+        -checkShard(key) bool
+    }
+
+    %% Shard
+    class Shard {
+        +ShardId int
+        +Data map~string~string
+        +Status ShardStatus
+        +ConfigNum int
+    }
+
+    %% ShardStatus enum
+    class ShardStatus {
+        <<enumeration>>
+        SERVING
+        PULLING
+        MIGRATING
+        IDLE
+    }
+
+    %% ShardCtrler (Controller)
+    class ShardCtrler {
+        -me int
+        -rsm *RSM
+        -configs []Config
+        -mu sync.Mutex
+        +Join(args, reply)
+        +Leave(args, reply)
+        +Move(args, reply)
+        +Query(args, reply)
+        +DoOp(req) any
+        -rebalance() Config
+    }
+
+    %% Config
+    class Config {
+        +Num int
+        +Shards [NShards]Tgid
+        +Groups map~Tgid~[]string
+    }
+
+    %% Network/RPC layer
+    class Network {
+        -mu sync.Mutex
+        -reliable bool
+        -longDelays bool
+        -ends map~interface{}~*ClientEnd
+        -enabled map~interface{}~bool
+        -servers map~interface{}~*Server
+        -connections map~interface{}~interface{}
+        +MakeNetwork() *Network
+        +AddServer(servername, rs) *ClientEnd
+        +DeleteServer(servername)
+        +Connect(endname, servername)
+        +Enable(endname, enabled)
+        +Reliable(yes)
+        +LongDelays(yes)
+    }
+
+    %% Relaciones principales
+    Raft --> LogEntry : contiene
+    Raft --> ServerState : usa
+    Raft --> Persister : persiste en
+    Raft --> ClientEnd : comunica via
+
+    RSM --> Raft : contiene
+    RSM --> Persister : usa
+
+    KVServer --> RSM : usa
+    Clerk --> ClientEnd : llama via
+    Clerk --> KVServer : invoca
+
+    Coordinator --> Task : gestiona
+    Task --> TaskStatus : tiene
+    Worker --> Coordinator : solicita tareas
+
+    ShardKVServer --> RSM : usa
+    ShardKVServer --> Shard : gestiona
+    ShardKVServer --> ShardCtrler : consulta
+    Shard --> ShardStatus : tiene
+
+    ShardCtrler --> RSM : usa
+    ShardCtrler --> Config : gestiona
+
+    Network --> ClientEnd : contiene
+    Network --> Server : gestiona
+
+    ClientEnd --> Network : usa
+
+    %% Estilos
+    style Raft fill:#e1f5ff,stroke:#01579b,stroke-width:3px
+    style RSM fill:#fff9c4,stroke:#f57f17,stroke-width:3px
+    style KVServer fill:#ffebee,stroke:#b71c1c,stroke-width:2px
+    style ShardKVServer fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    style ShardCtrler fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    style Coordinator fill:#ffe5b4,stroke:#ff8c00,stroke-width:2px
+    style Worker fill:#ffe5b4,stroke:#ff8c00,stroke-width:2px
+    style Network fill:#f5f5f5,stroke:#696969,stroke-width:2px

@@ -1,0 +1,169 @@
+classDiagram
+    %% Interfaz principal de Raft
+    class Raft {
+        <<interface>>
+        +Start(command interface{}) (int, int, bool)
+        +GetState() (int, bool)
+        +Snapshot(index int, snapshot []byte)
+        +PersistBytes() int
+        +Kill()
+    }
+
+    note for Raft "Interfaz principal del algoritmo de consenso Raft.\nTodos los servidores que usan Raft deben implementar esta interfaz."
+
+    %% ApplyMsg - Mensajes del log a la aplicación
+    class ApplyMsg {
+        +CommandValid bool
+        +Command interface{}
+        +CommandIndex int
+        +SnapshotValid bool
+        +Snapshot []byte
+        +SnapshotTerm int
+        +SnapshotIndex int
+    }
+
+    note for ApplyMsg "Mensaje enviado por Raft a la aplicación\ncuando una entrada de log es committed.\nUsado para aplicar comandos al state machine."
+
+    %% Interfaz RSM (Replicated State Machine)
+    class RSM {
+        +Submit(op interface{}) interface{}
+        +Raft() raftapi.Raft
+        +Snapshot(maxraftstate int)
+        +Kill()
+    }
+
+    note for RSM "Replicated State Machine.\nAbstrae Raft y proporciona una interfaz\nsimple para servicios replicados (Lab 4)."
+
+    %% Interfaz del servidor que implementa la lógica de negocio
+    class StateMachine {
+        <<interface>>
+        +DoOp(req any) any
+        +Snapshot() []byte
+        +Restore(data []byte)
+    }
+
+    note for StateMachine "Interfaz que debe implementar el servidor\npara definir cómo procesar operaciones\ny crear/restaurar snapshots."
+
+    %% KVServer - Servidor Key-Value
+    class KVServer {
+        +me int
+        +dead int32
+        +rsm *RSM
+        +Get(args *GetArgs, reply *GetReply)
+        +Put(args *PutArgs, reply *PutReply)
+        +DoOp(req any) any
+        +Snapshot() []byte
+        +Restore(data []byte)
+        +Kill()
+        +killed() bool
+    }
+
+    note for KVServer "Servidor Key-Value replicado.\nUsa RSM para replicar operaciones Get/Put\ncon linearizabilidad (Lab 4)."
+
+    %% Clerk - Cliente KV
+    class Clerk {
+        +servers []*labrpc.ClientEnd
+        +clientId int64
+        +seqNum int64
+        +Get(key string) string
+        +Put(key string, value string)
+        +Append(key string, arg string)
+        -PutAppend(key string, value string, op string) string
+    }
+
+    note for Clerk "Cliente del servicio KV.\nManeja reintentos y detección de duplicados\nusando clientId y números de secuencia."
+
+    %% Coordinator - MapReduce
+    class Coordinator {
+        +Example(args *ExampleArgs, reply *ExampleReply) error
+        +Done() bool
+        -server()
+    }
+
+    note for Coordinator "Coordinador de MapReduce (Lab 1).\nAsigna tareas Map/Reduce a workers\ny detecta failures."
+
+    %% Worker - MapReduce
+    class Worker {
+        +mapf func(string, string) []KeyValue
+        +reducef func(string, []string) string
+    }
+
+    note for Worker "Worker de MapReduce.\nEjecuta funciones Map y Reduce\nproporcionadas por la aplicación."
+
+    %% RPC Args/Reply para KV
+    class GetArgs {
+        +Key string
+        +ClientId int64
+        +SeqNum int64
+    }
+
+    class GetReply {
+        +Err Err
+        +Value string
+    }
+
+    class PutArgs {
+        +Key string
+        +Value string
+        +ClientId int64
+        +SeqNum int64
+    }
+
+    class PutReply {
+        +Err Err
+    }
+
+    %% Sharded KV Client
+    class ShardKVClerk {
+        +sm *shardctrler.Clerk
+        +make_end func(string) *ClientEnd
+        +clnt *labrpc.Client
+        +Get(key string) string
+        +Put(key string, value string)
+        +Append(key string, arg string)
+    }
+
+    note for ShardKVClerk "Cliente para servicio KV con sharding (Lab 5).\nRouting inteligente basado en configuración\nde shards."
+
+    %% ShardKV Server
+    class ShardKVServer {
+        +me int
+        +gid Tgid
+        +sm *shardctrler.Clerk
+        +rsm *RSM
+        +Get(args *GetArgs, reply *GetReply)
+        +Put(args *PutArgs, reply *PutReply)
+        +Migrate(args *MigrateArgs, reply *MigrateReply)
+        +InstallShard(args *InstallShardArgs, reply *InstallShardReply)
+    }
+
+    note for ShardKVServer "Servidor KV con sharding.\nManeja migración de shards entre grupos\ny reconfiguraciones dinámicas (Lab 5)."
+
+    %% Relaciones
+    RSM ..> Raft : usa
+    RSM ..> StateMachine : delega a
+    KVServer ..|> StateMachine : implementa
+    KVServer --> RSM : contiene
+    Clerk --> KVServer : llama via RPC
+    Clerk ..> GetArgs : envía
+    Clerk ..> PutArgs : envía
+    KVServer ..> GetReply : responde
+    KVServer ..> PutReply : responde
+    Raft ..> ApplyMsg : produce
+    RSM ..> ApplyMsg : consume
+    Worker --> Coordinator : solicita tareas
+    ShardKVClerk --> ShardKVServer : llama via RPC
+    ShardKVServer --> RSM : usa para replicación
+    ShardKVServer ..|> StateMachine : implementa
+
+    %% Estilos
+    style Raft fill:#e1f5ff,stroke:#01579b,stroke-width:3px
+    style RSM fill:#fff9c4,stroke:#f57f17,stroke-width:3px
+    style StateMachine fill:#f3e5f5,stroke:#4a148c,stroke-width:3px
+    style KVServer fill:#ffebee,stroke:#b71c1c,stroke-width:2px
+    style ShardKVServer fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    style Clerk fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+    style ShardKVClerk fill:#e0f2f1,stroke:#004d40,stroke-width:2px
+    style ApplyMsg fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    style Coordinator fill:#ffe5b4,stroke:#ff8c00,stroke-width:2px
+    style Worker fill:#ffe5b4,stroke:#ff8c00,stroke-width:2px

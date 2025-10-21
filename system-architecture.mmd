@@ -1,0 +1,153 @@
+graph TB
+    subgraph "Lab 5: Servicio Key-Value con Sharding"
+        SC[Shard Controller<br/>Configuración Distribuida]
+
+        subgraph "Grupo de Réplicas 1"
+            SG1_S1[Servidor Shard 1]
+            SG1_S2[Servidor Shard 2]
+            SG1_S3[Servidor Shard 3]
+            SG1_R1[Raft Instance 1]
+        end
+
+        subgraph "Grupo de Réplicas 2"
+            SG2_S1[Servidor Shard 1]
+            SG2_S2[Servidor Shard 2]
+            SG2_S3[Servidor Shard 3]
+            SG2_R2[Raft Instance 2]
+        end
+
+        SKC[Shard KV Client<br/>Routing Inteligente]
+    end
+
+    subgraph "Lab 4: Servicio Key-Value con Raft (KVRaft)"
+        KVC[KV Client<br/>Detección de Duplicados]
+
+        subgraph "Cluster KVRaft"
+            KVS1[KVServer 1<br/>RSM]
+            KVS2[KVServer 2<br/>RSM]
+            KVS3[KVServer 3<br/>RSM]
+            R1[Raft Consensus<br/>Log Replicado]
+        end
+
+        SNAP[Snapshot Manager<br/>Compactación de Log]
+    end
+
+    subgraph "Lab 3: Algoritmo de Consenso Raft"
+        subgraph "Nodo Raft"
+            LE[Leader Election<br/>Timeouts + Votos]
+            LR[Log Replication<br/>AppendEntries RPC]
+            PS[Persistence<br/>State + Log + Vote]
+            SM[State Machine<br/>Apply Commands]
+        end
+
+        RPC[labrpc<br/>RPC Simulado]
+        PERSIST[Persister<br/>Almacenamiento Simulado]
+    end
+
+    subgraph "Lab 2: Servidor Key-Value Básico"
+        KV2C[KV Client Básico]
+        KV2S[KV Server<br/>Get/Put con Locks]
+        KV2M[Map String → String<br/>Almacenamiento en Memoria]
+    end
+
+    subgraph "Lab 1: MapReduce"
+        MRC[MapReduce Coordinator<br/>Asignación de Tareas]
+
+        subgraph "Workers Distribuidos"
+            W1[Worker 1<br/>Map + Reduce]
+            W2[Worker 2<br/>Map + Reduce]
+            W3[Worker 3<br/>Map + Reduce]
+        end
+
+        IFS[Input Files<br/>Datos de Entrada]
+        OFS[Output Files<br/>Resultados]
+    end
+
+    subgraph "Infraestructura Compartida"
+        LABRPC[labrpc Package<br/>RPC con Simulación de Fallos]
+        LABGOB[labgob Package<br/>Serialización GOB]
+        TESTER[tester1 Framework<br/>Simulación de Crashes/Particiones]
+        KVTEST[kvtest1<br/>Testing de Linearizabilidad]
+    end
+
+    %% Relaciones Lab 5
+    SKC -->|Get/Put Request| SG1_S1
+    SKC -->|Get/Put Request| SG2_S1
+    SKC -->|Query Config| SC
+    SG1_S1 --> SG1_R1
+    SG1_S2 --> SG1_R1
+    SG1_S3 --> SG1_R1
+    SG2_S1 --> SG2_R2
+    SG2_S2 --> SG2_R2
+    SG2_S3 --> SG2_R2
+    SC -.->|Reconfig Events| SG1_S1
+    SC -.->|Reconfig Events| SG2_S1
+    SG1_S1 -.->|Shard Migration| SG2_S1
+
+    %% Relaciones Lab 4
+    KVC -->|Get/Put/Append| KVS1
+    KVC -->|Get/Put/Append| KVS2
+    KVC -->|Get/Put/Append| KVS3
+    KVS1 --> R1
+    KVS2 --> R1
+    KVS3 --> R1
+    R1 -->|Apply Commands| KVS1
+    R1 -->|Apply Commands| KVS2
+    R1 -->|Apply Commands| KVS3
+    KVS1 --> SNAP
+    SNAP --> R1
+
+    %% Relaciones Lab 3
+    LE --> LR
+    LR --> PS
+    LR --> SM
+    PS --> PERSIST
+    LE -.->|RequestVote RPC| RPC
+    LR -.->|AppendEntries RPC| RPC
+    SM -.->|ApplyMsg| KVS1
+
+    %% Relaciones Lab 2
+    KV2C -->|Get/Put RPC| KV2S
+    KV2S --> KV2M
+
+    %% Relaciones Lab 1
+    W1 -->|Request Task| MRC
+    W2 -->|Request Task| MRC
+    W3 -->|Request Task| MRC
+    MRC -->|Assign Map/Reduce| W1
+    MRC -->|Assign Map/Reduce| W2
+    MRC -->|Assign Map/Reduce| W3
+    IFS -->|Read| W1
+    W1 -->|Write Intermediate| W2
+    W2 -->|Write Final| OFS
+
+    %% Relaciones con Infraestructura
+    R1 -.-> LABRPC
+    RPC -.-> LABRPC
+    KVS1 -.-> LABGOB
+    KVS1 -.-> TESTER
+    SG1_R1 -.-> TESTER
+    KVS1 -.-> KVTEST
+    SG1_S1 -.-> KVTEST
+
+    %% Jerarquía de Construcción
+    SG1_R1 -.->|Usa| R1
+    SG2_R2 -.->|Usa| R1
+    R1 -.->|Extiende| LE
+    KVS1 -.->|Construye sobre| R1
+    SG1_S1 -.->|Construye sobre| KVS1
+
+    %% Estilos
+    classDef lab1 fill:#FFE5B4,stroke:#FF8C00,stroke-width:2px
+    classDef lab2 fill:#E0F0FF,stroke:#4169E1,stroke-width:2px
+    classDef lab3 fill:#F0E0FF,stroke:#8B00FF,stroke-width:2px
+    classDef lab4 fill:#FFE0E0,stroke:#DC143C,stroke-width:2px
+    classDef lab5 fill:#E0FFE0,stroke:#228B22,stroke-width:2px
+    classDef infra fill:#F5F5F5,stroke:#696969,stroke-width:2px,stroke-dasharray: 5 5
+
+    class MRC,W1,W2,W3,IFS,OFS lab1
+    class KV2C,KV2S,KV2M lab2
+    class LE,LR,PS,SM,RPC,PERSIST lab3
+    class KVC,KVS1,KVS2,KVS3,R1,SNAP lab4
+    class SC,SG1_S1,SG1_S2,SG1_S3,SG1_R1,SG2_S1,SG2_S2,SG2_S3,SG2_R2,SKC lab5
+    class LABRPC,LABGOB,TESTER,KVTEST infra
