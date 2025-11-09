@@ -69,6 +69,51 @@ El sistema está organizado en capas, donde cada laboratorio construye sobre el 
 
 Ver [system-architecture.mmd](system-architecture.mmd) para el diagrama completo de arquitectura.
 
+## 📚 Lecciones: Sistemas Distribuidos para Investigación en IA
+
+Este repositorio incluye lecciones comprehensivas que conectan los conceptos de sistemas distribuidos con la investigación en IA moderna:
+
+### 🎓 Materiales Educativos
+
+1. **[Distributed Systems for AI Research](docs/lessons/distributed-systems-for-ai-research.md)**
+   - Conexión completa entre MapReduce y paralelismo de datos en IA
+   - Raft consensus aplicado a Federated Learning
+   - Sharding para paralelismo de modelos (GPT-3, T5, BLOOM)
+   - Tolerancia a fallos en entrenamiento de modelos grandes
+   - Replicación para servir modelos a escala
+   - Modelos de consistencia en gradiente descendente distribuido
+   - Estudios de caso: OpenAI, Google, Meta, DeepMind
+
+2. **[Quick Reference: DS → AI](docs/lessons/quick-reference-ds-to-ai.md)**
+   - Guía rápida de referencia para conceptos clave
+   - Tablas de comparación entre Labs y sistemas de IA
+   - Patrones de diseño comunes (Parameter Server, AllReduce, etc.)
+   - Árbol de decisión para elegir la técnica correcta
+
+3. **[Practical Examples](docs/lessons/practical-examples.md)**
+   - Ejemplos de código ejecutables en Python/PyTorch
+   - Data Parallelism (estilo MapReduce)
+   - Parameter Server (estilo Lab 2 KV)
+   - Federated Learning (inspirado en Raft)
+   - Fault-Tolerant Training (checkpointing estilo Raft)
+   - Ejercicios prácticos para experimentar
+
+### 🔬 ¿Por qué es importante para IA?
+
+Los conceptos de 6.5840 son fundamentales para:
+
+- **Entrenamiento de Modelos Grandes**: GPT-4, PaLM, LLaMA requieren paralelismo masivo
+- **Federated Learning**: Entrenar sin centralizar datos (privacidad)
+- **Model Serving**: Servir billones de predicciones/día con alta disponibilidad
+- **Fault Tolerance**: Entrenamientos que cuestan $10M+ no pueden fallar
+- **Distributed Optimization**: Coordinar gradientes entre miles de GPUs
+
+**Sistemas Reales que Usan Estos Conceptos**:
+- OpenAI GPT-3/4: MapReduce + Sharding + Raft checkpointing
+- Google BERT/PaLM: Data parallelism + modelo paralelo
+- Meta PyTorch FSDP: Sharding totalmente distribuido
+- DeepMind AlphaFold: Parameter server para aprendizaje por refuerzo
+
 ## 🚀 Instalación
 
 ### Prerrequisitos
@@ -406,6 +451,11 @@ rm /var/tmp/5840-mr-*
 - [Effective Go](https://golang.org/doc/effective_go)
 - [Go Race Detector](https://go.dev/blog/race-detector)
 - [Testing Distributed Systems](https://asatarin.github.io/testing-distributed-systems/)
+
+### Aplicaciones en IA (Nuevos Materiales)
+- **[Lección Completa: Distributed Systems for AI](docs/lessons/distributed-systems-for-ai-research.md)** - Conexiones profundas entre este curso y la investigación en IA moderna
+- **[Quick Reference Guide](docs/lessons/quick-reference-ds-to-ai.md)** - Guía rápida de consulta
+- **[Practical Examples](docs/lessons/practical-examples.md)** - Código ejecutable en Python/PyTorch
 
 ## 🤝 Contribuir
 
